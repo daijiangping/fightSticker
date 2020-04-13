@@ -1,32 +1,55 @@
-package com.acey.fightsticker;
+package com.acey.fightsticker.services;
 
 import android.accessibilityservice.AccessibilityService;
 import android.graphics.PixelFormat;
-import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
-import java.util.ArrayList;
+import com.acey.fightsticker.R;
+
 import java.util.List;
 import java.util.Objects;
 
-public class RedService extends AccessibilityService {
+public class StickerService extends AccessibilityService {
+    static String content = "";
     private String[] filter = new String[]{"恭喜发财", "开"};
     //    树节点
-    private AccessibilityNodeInfo rootNode = null;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        rootNode = getRootInActiveWindow();
-        System.out.println(rootNode);
-        if (Objects.isNull(rootNode)) {
-            return;
+        int eventType = event.getEventType();
+        if (AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED == eventType) {
+            AccessibilityNodeInfo accessibilityNodeInfo = getEditText("android.widget.EditText");
+            String text = Objects.isNull(accessibilityNodeInfo.getText()) ? "" : accessibilityNodeInfo.getText() + "";
+            if (!text.equals(content)) {
+                content = text;
+                Toast.makeText(getApplicationContext(), content, Toast.LENGTH_SHORT).show();
+            }
         }
-        startClick(rootNode);
+    }
+
+    private AccessibilityNodeInfo getEditText(String viewClassName) {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        return findByClassName(root, viewClassName);
+    }
+
+    private AccessibilityNodeInfo findByClassName(AccessibilityNodeInfo root, String viewClassName) {
+        for (int i = 0; i < root.getChildCount(); ++i) {
+            AccessibilityNodeInfo child = root.getChild(i);
+            if (child.getClassName().equals(viewClassName)) {
+                return child;
+            }
+            AccessibilityNodeInfo found = findByClassName(child, viewClassName);
+            if (Objects.nonNull(found)) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private void startClick(AccessibilityNodeInfo rootNode) {
