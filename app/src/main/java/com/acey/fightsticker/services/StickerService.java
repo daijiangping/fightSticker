@@ -1,10 +1,13 @@
 package com.acey.fightsticker.services;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.PixelFormat;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
+import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.WindowManager;
@@ -16,19 +19,15 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import com.acey.fightsticker.MainActivity;
+import com.acey.fightsticker.FileUtil;
 import com.acey.fightsticker.R;
 
-import java.io.IOException;
+import java.io.File;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Objects;
-
-import androidx.fragment.app.Fragment;
 
 public class StickerService extends AccessibilityService {
     static String content = "";
@@ -41,14 +40,13 @@ public class StickerService extends AccessibilityService {
             String text = Objects.isNull(accessibilityNodeInfo.getText()) ? "" : accessibilityNodeInfo.getText() + "";
             if (!text.equals(content)) {
                 content = text;
-                Fragment fragment = new StickerListService();
                 WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
                 lp.format = PixelFormat.TRANSLUCENT;
                 lp.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
                 lp.width = WindowManager.LayoutParams.WRAP_CONTENT;
-                lp.height = 1000;
+                lp.height = 200;
 //                lp.gravity = Gravity.TOP;
 
                 HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
@@ -58,13 +56,20 @@ public class StickerService extends AccessibilityService {
                 lineLayout.setOrientation(LinearLayout.HORIZONTAL);
                 lineLayout.setGravity(Gravity.BOTTOM);
 
-
 //size:代码中获取到的图片数量
                 lineLayout.removeAllViews();  //clear linearlayout
                 for (int i = 0; i < 10; ++i) {
                     ImageView imageView = new ImageView(this);
                     imageView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));  //设置图片宽高
-                    imageView.setImageBitmap(getHttpBitmap("https://images0.cnblogs.com/blog/430074/201302/01220037-4e6a57c1199748fea9f8391e7e0548d7.jpg")); //图片资源
+                    Bitmap httpBitmap = FileUtil.getImageInputStream("https://images0.cnblogs.com/blog/430074/201302/01220037-4e6a57c1199748fea9f8391e7e0548d7.jpg");
+                    String filePath = FileUtil.saveImage(httpBitmap,getApplicationContext());
+
+                    imageView.setImageBitmap(httpBitmap); //图片资源
+                    imageView.setOnClickListener(v -> {
+                        Bundle arguments = new Bundle();
+                        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, filePath);
+                        accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+                    });
                     lineLayout.addView(imageView); //动态添加图片
 
                 }
@@ -74,32 +79,7 @@ public class StickerService extends AccessibilityService {
         }
     }
 
-    public static Bitmap getHttpBitmap(String url) {
-        URL myFileURL;
-        Bitmap bitmap = null;
-        try {
-            myFileURL = new URL(url);
-            //获得连接
-            HttpURLConnection conn = (HttpURLConnection) myFileURL.openConnection();
-            //设置超时时间为6000毫秒，conn.setConnectionTiem(0);表示没有时间限制
-            conn.setConnectTimeout(6000);
-            //连接设置获得数据流
-            conn.setDoInput(true);
-            //不使用缓存
-            conn.setUseCaches(false);
-            //这句可有可无，没有影响
-            //conn.connect();
-            //得到数据流
-            InputStream is = conn.getInputStream();
-            //解析得到图片
-            bitmap = BitmapFactory.decodeStream(is);
-            //关闭数据流
-            is.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return bitmap;
-    }
+
 
     private AccessibilityNodeInfo getEditText(String viewClassName) {
         AccessibilityNodeInfo root = getRootInActiveWindow();
