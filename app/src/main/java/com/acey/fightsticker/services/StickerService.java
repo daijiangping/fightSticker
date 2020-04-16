@@ -1,15 +1,13 @@
 package com.acey.fightsticker.services;
 
 import android.accessibilityservice.AccessibilityService;
-import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.PixelFormat;
-import android.media.MediaScannerConnection;
-import android.net.Uri;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -22,68 +20,94 @@ import android.widget.Toast;
 import com.acey.fightsticker.FileUtil;
 import com.acey.fightsticker.R;
 
-import java.io.File;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class StickerService extends AccessibilityService {
     static String content = "";
+    private static String EDIT_TEXT_CLASS_NAME = "android.widget.EditText";
+    private static AccessibilityNodeInfo textNode;
+    private static HorizontalScrollView stickerLayout;
+    private static LinearLayout linearLayout;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         int eventType = event.getEventType();
+
         if (AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED == eventType) {
-            AccessibilityNodeInfo accessibilityNodeInfo = getEditText("android.widget.EditText");
-            String text = Objects.isNull(accessibilityNodeInfo.getText()) ? "" : accessibilityNodeInfo.getText() + "";
-            if (!text.equals(content)) {
+            textNode = getEditText();
+            String text = Objects.isNull(textNode.getText()) ? "" : textNode.getText() + "";
+            if (!text.equals(content) && text.endsWith(" ")) {
+                Optional.ofNullable(linearLayout).ifPresent(ViewGroup::removeAllViews);
+                Optional.ofNullable(stickerLayout).ifPresent(ViewGroup::removeAllViews);
                 content = text;
-                WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
                 lp.format = PixelFormat.TRANSLUCENT;
                 lp.flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
                 lp.width = WindowManager.LayoutParams.WRAP_CONTENT;
                 lp.height = 200;
-//                lp.gravity = Gravity.TOP;
 
-                HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
+                stickerLayout = new HorizontalScrollView(this);
 
-                LinearLayout lineLayout = new LinearLayout(this);
-                horizontalScrollView.addView(lineLayout);
-                lineLayout.setOrientation(LinearLayout.HORIZONTAL);
-                lineLayout.setGravity(Gravity.BOTTOM);
+                linearLayout = new LinearLayout(this);
+                stickerLayout.addView(linearLayout);
+                linearLayout.setOrientation(LinearLayout.HORIZONTAL);
+                linearLayout.setGravity(Gravity.BOTTOM);
 
-//size:代码中获取到的图片数量
-                lineLayout.removeAllViews();  //clear linearlayout
-                for (int i = 0; i < 10; ++i) {
+                List<String> data = Arrays.asList("https://tva1.sinaimg.cn/large/006Xzox4gy1gclawe1n2oj306o06ojri.jpg",
+                        "https://tva1.sinaimg.cn/large/006Xzox4gy1gclaw2pnyij306o06oaa4.jpg",
+                        "https://tva1.sinaimg.cn/large/006Xzox4gy1gclaw38lo3j306o06oq30.jpg",
+                        "https://tva1.sinaimg.cn/large/006Xzox4gy1gclaw985btj306o06odfx.jpg",
+                        "https://tva1.sinaimg.cn/large/006Xzox4gy1gclaw4c5zxj306o06omxa.jpg"
+                );
+                for (int i = 0; i < 4; ++i) {
                     ImageView imageView = new ImageView(this);
                     imageView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));  //设置图片宽高
-                    Bitmap httpBitmap = FileUtil.getImageInputStream("https://images0.cnblogs.com/blog/430074/201302/01220037-4e6a57c1199748fea9f8391e7e0548d7.jpg");
-                    String filePath = FileUtil.saveImage(httpBitmap,getApplicationContext());
+                    Bitmap httpBitmap = FileUtil.getImageInputStream(data.get(i));
+                    String filePath = FileUtil.saveImage(httpBitmap, getApplicationContext());
 
                     imageView.setImageBitmap(httpBitmap); //图片资源
                     imageView.setOnClickListener(v -> {
                         Bundle arguments = new Bundle();
                         arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, filePath);
-                        accessibilityNodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+                        textNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
                     });
-                    lineLayout.addView(imageView); //动态添加图片
 
+                    linearLayout.addView(imageView); //动态添加图片
                 }
-                wm.addView(horizontalScrollView, lp);
+                windowManager.addView(stickerLayout, lp);
                 Toast.makeText(getApplicationContext(), content, Toast.LENGTH_SHORT).show();
             }
         }
+        if (isChangePage()) {
+            Optional.ofNullable(linearLayout).ifPresent(ViewGroup::removeAllViews);
+            Optional.ofNullable(stickerLayout).ifPresent(ViewGroup::removeAllViews);
+            stickerLayout = null;
+            linearLayout = null;
+        }
+    }
+
+    private boolean isChangePage() {
+        AccessibilityNodeInfo editText = getEditText();
+        if (Objects.isNull(editText) && Objects.nonNull(stickerLayout)) {
+            return true;
+        }
+        if (Objects.nonNull(editText)) {
+            Rect rect = new Rect();
+            editText.getBoundsInScreen(rect);
+            return rect.bottom > 1500;
+        }
+        return false;
     }
 
 
-
-    private AccessibilityNodeInfo getEditText(String viewClassName) {
+    private AccessibilityNodeInfo getEditText() {
         AccessibilityNodeInfo root = getRootInActiveWindow();
-        return findByClassName(root, viewClassName);
+        return findByClassName(root, EDIT_TEXT_CLASS_NAME);
     }
 
     private AccessibilityNodeInfo findByClassName(AccessibilityNodeInfo root, String viewClassName) {

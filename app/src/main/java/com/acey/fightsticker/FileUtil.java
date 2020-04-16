@@ -29,7 +29,6 @@ public class FileUtil {
             connection = (HttpURLConnection) url.openConnection();
             connection.setConnectTimeout(6000); //超时设置
             connection.setDoInput(true);
-            connection.setUseCaches(false); //设置不使用缓存
             InputStream inputStream = connection.getInputStream();
             bitmap = BitmapFactory.decodeStream(inputStream);
             inputStream.close();
@@ -40,11 +39,8 @@ public class FileUtil {
     }
 
     public static String saveImage(Bitmap bitmap, Context context) {
-        // 首先保存图片
         File dir = null;
-
         String dirPath = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES).getAbsolutePath() + "/image/";
-        String fileName = System.currentTimeMillis() + ".jpg";
         String filePath = dirPath + System.currentTimeMillis() + ".jpg";
         dir = new File(dirPath);
         try {
@@ -65,23 +61,20 @@ public class FileUtil {
             e.printStackTrace();
         }
         //其次把文件插入到系统图库
-        try {
-            MediaStore.Images.Media.insertImage(context.getContentResolver(),
-                    filePath, fileName, null);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            MediaStore.Images.Media.insertImage(context.getContentResolver(),
+//                    filePath, fileName, null);
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        }
         // 通知图库更新
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            MediaScannerConnection.scanFile(context, new String[]{filePath}, null,
-                    new MediaScannerConnection.OnScanCompletedListener() {
-                        public void onScanCompleted(String path, Uri uri) {
-                            Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                            mediaScanIntent.setData(uri);
-                        }
-                    });
-        } else {
-        }
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+//            MediaScannerConnection.scanFile(context, new String[]{filePath}, null,
+//                    (path, uri) -> {
+//                        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+//                        mediaScanIntent.setData(uri);
+//                    });
+//        }
         return filePath;
     }
 }
